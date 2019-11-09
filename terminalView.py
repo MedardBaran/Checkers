@@ -1,34 +1,52 @@
 from colorama import Fore, Back, Style
+from model import EmptyField, Piece, King, Player
+
+
+def _empty_field_to_str(self):
+    r = "   "
+
+    if self.available:
+        return Back.BLACK + r
+    else:
+        return Back.LIGHTWHITE_EX + r
+
+
+def _piece_to_str(self):
+    r = " " + self.id + " "
+
+    if self.player == Player.red:
+        return Back.BLACK + Fore.RED + r
+    else:
+        return Back.BLACK + Fore.WHITE + r
+
+
+def _king_to_str(self):
+    r = "[" + self.id + "]"
+
+    if self.player == Player.red:
+        return Back.BLACK + Fore.RED + r
+    else:
+        return Back.BLACK + Fore.WHITE + r
+
+
+EmptyField.__str__ = _empty_field_to_str
+Piece.__str__ = _piece_to_str
+King.__str__ = _king_to_str
+
 
 def print_board(board, selected=None, moves=None):
     """
-    Print game state showing available moves.
+    Print board. Show available moves if piece is selected.
     :param board: numpy board, 8 x 8
     :param selected: optional, tuple with item coordinates: (row, col)
     :param moves: optional, list of tuples with reachable fields: (row, col, name)
-    :return: None. Prints actual game state in the terminal.
+    :return: None.
     """
-    def _field_to_str(s):
-        s = str(s)
-        r = ""
-        if s == "None":
-            r = Back.LIGHTWHITE_EX + "   "
-        # elif field.addr in moves:
-        #     pass
-        # elif field.addr == selected:
-        #     pass
-        elif s == "    ":
-            r = Back.BLACK + "   "
-        elif s[1] == "0":
-            r = Back.BLACK + Fore.RED + f"({s[2]})"
-        elif s[1] == "1":
-            r = Back.BLACK + Fore.WHITE + f"({s[2]})"
-        return r
 
     for row in board:
         view = ""
         for field in row:
-            view = view + _field_to_str(field)
+            print(field, end="")
         print(view + Style.RESET_ALL)
 
 
