@@ -3,6 +3,7 @@ from model import EmptyField, Piece, King, Player
 
 # todo: show id's only for next turn player. opponent should have 0's and [0]'s
 
+
 def _empty_field_to_str(self):
     r = "   "
 
@@ -13,7 +14,9 @@ def _empty_field_to_str(self):
 
 
 def _piece_to_str(self):
-    r = " " + self.id + " "
+    with_id = True
+    id = self.id if with_id else "O"
+    r = " " + id + " "
 
     if self.player == Player.red:
         return Back.BLACK + Fore.RED + r
@@ -22,6 +25,8 @@ def _piece_to_str(self):
 
 
 def _king_to_str(self):
+    with_id = True
+    id = self.id if with_id else "O"
     r = "[" + self.id + "]"
 
     if self.player == Player.red:

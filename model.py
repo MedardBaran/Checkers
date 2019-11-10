@@ -19,6 +19,10 @@ class BoardMember:
     def addr(self):
         return self.row, self.col
 
+    @addr.setter
+    def addr(self, new_addr):
+        self.row, self.col = new_addr
+
     def get_diagonal_fields(self, max_dist=7, min_dist=1, direction='nwse'):
         """
         example: get all +'s for field 'adr'
@@ -60,6 +64,10 @@ class Piece(BoardMember):
         self.id = st.ascii_lowercase[Piece.items_created[player]]
         Piece.items_created[player] += 1
 
+    def decr_items_counter(self):
+        Piece.items_created[self.player] -= 1
+        # todo: notify endgame observer.
+
 
 class King(BoardMember):
     # todo: class and its moves to be implemented...
@@ -72,6 +80,8 @@ class Game:
         self._init_board()
         for p in Player:
             self._init_pieces(p)
+
+    # todo: endgame observer?
 
     def _init_board(self):
         self.board = np.empty((8, 8), dtype=BoardMember)
@@ -90,8 +100,15 @@ class Game:
     def get_board(self):
         return self.board
 
-    def move(self, piece, to):
-        pass
+    def move(self, piece_addr, dest):
+        # move obj
+        self.board[piece_addr], self.board[dest] = self.board[dest], self.board[piece_addr]
+
+        # update addr
+        self.board[piece_addr].addr = piece_addr
+        self.board[dest].addr = dest
+
+        self._delete_pieces_between(dest, piece_addr)
 
     def get_possible_moves(self, piece) -> dict:
         """
@@ -118,12 +135,23 @@ class Game:
         # example captures from (3,6): [[(5,4)], [(5,8), (6,7)]] so returns only [(5,8), (6,7)]
         return moves if not captures else captures
 
+    def get_movable_pieces(self, player):
+        pieces = {}
+        for row in self.board:
+            for item in row:
+                if not isinstance(item, Piece) or not item.player == player: continue
+                possible_moves = self.get_possible_moves(item)
+                if possible_moves:
+                    pieces[item.addr] = possible_moves
+
+        if not pieces: pass # todo: endgame
+        return pieces
+
     def _is_move_allowed(self, piece, addr):
         return isinstance(self.board[addr], EmptyField)
 
     def _is_capture_allowed(self, piece, addr):
-        rev_piece_addr = [-1 * i for i in piece.addr]
-        dir = _vector_sum(addr, rev_piece_addr)
+        dir = _vector_sum(addr, piece.addr, reverse_addrs=True)
 
         field_behind = _vector_sum(piece.addr, dir, dir)
         if not _is_on_board(*field_behind):
@@ -134,9 +162,38 @@ class Game:
              isinstance(self.board[field_behind], EmptyField)
         return av
 
+    def _delete_pieces_between(self, addr1, addr2):
+        diff = _vector_sum(addr1, addr2, reverse_addrs=True)
+        dist = abs(diff[0])
+        dir = diff[0]/dist, diff[1]/dist
 
-def _vector_sum(t1, *t):
-    return tuple([sum(i) for i in zip(t1, *t)])
+        for i in range(1, dist):
+            addr_between = _vector_sum(addr1, dir)
+            field_between = self.board[addr_between]
+
+            if isinstance(field_between, Piece):
+                self.board[addr_between] = EmptyField(*addr_between, available=True)
+                field_between.decr_items_counter()
+                break
+
+    def _addr_to_id(self, addrs):
+        res = {}
+
+        for addr in list(addrs):
+            res[self.board[addr].id] = addr
+
+        return res
+
+
+def _vector_sum(basic_addr, *addrs, reverse_addrs=False):
+    temp = []
+    if reverse_addrs:
+        for addr in addrs:
+            temp.append([-1 * i for i in addr])
+    else:
+        temp = addrs
+
+    return tuple([sum(addr) for addr in zip(basic_addr, *temp)])
 
 
 def _is_on_board(r, c):
