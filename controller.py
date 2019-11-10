@@ -13,3 +13,4 @@ class Controller:
 
 if __name__ == '__main__':
     c = Controller()
+    print("available moves for red b", c.game.get_possible_moves(c.board[5, 2]))

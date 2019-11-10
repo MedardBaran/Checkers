@@ -1,6 +1,7 @@
 from colorama import Fore, Back, Style
 from model import EmptyField, Piece, King, Player
 
+# todo: show id's only for next turn player. opponent should have 0's and [0]'s
 
 def _empty_field_to_str(self):
     r = "   "
