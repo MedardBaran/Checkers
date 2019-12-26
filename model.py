@@ -1,14 +1,17 @@
-from enum import Enum
-import string as st
-import numpy as np
+import copy
 import itertools as it
+import string as st
+from collections import OrderedDict
+from enum import Enum
+
+import numpy as np
 
 
 class Player(Enum):
     white = 'n'  # and goes south
     red = 's'  # and goes north
 
-# region Pieces
+
 class BoardMember:
     def __init__(self, row: int, col: int, available: bool):
         self.row = row
@@ -23,7 +26,7 @@ class BoardMember:
     def addr(self, new_addr):
         self.row, self.col = new_addr
 
-    def get_my_diagonal_fields(self, max_dist=7, min_dist=1, direction='nwse'):
+    def get_my_diagonal_neighbours(self, max_dist=7, min_dist=1, direction='nwse'):
         """
         example: get all +'s for field 'adr'
 
@@ -61,6 +64,7 @@ class Piece(BoardMember):
     def __init__(self, row, col, player):
         super().__init__(row, col, True)
         self.player = player
+        self.max_distance = 1
         self.id = st.ascii_lowercase[Piece.items_created[player]]
         Piece.items_created[player] += 1
 
@@ -70,25 +74,11 @@ class Piece(BoardMember):
 
 
 class King(BoardMember):
-    # todo: class and its moves to be implemented...
-    pass
-# endregion Pieces
-
-
-class Game:
-    def __init__(self):
-        self.board = Board()
-        self.current_player = Player.white
-        # todo: endgame observer?
-
-    def get_possible_moves(self, player=None):
-        pass
-
-    def move(self, possible_move):
-        pass
-
-    def _delete_pieces_between(self, move):
-        pass
+    def __init__(self, piece: Piece):
+        super().__init__(piece.row, piece.col, True)
+        self.player = piece.player
+        self.max_distance = 7
+        self.id = piece.id
 
 
 class Board:
@@ -125,16 +115,16 @@ class Board:
         self.board[addr] = item
         item.addr = addr
 
+    def clone(self):
+        return copy.deepcopy(self.board)
+
 
 class Move:
-    last_id = 0
-
-    def __init__(self, piece: BoardMember, dest: BoardMember, is_capturing: bool, following_move=None):
+    def __init__(self, piece: BoardMember, dest: BoardMember, is_capturing: bool, following_moves=None):
         self.piece = piece
         self.dest = dest
         self.is_capturing = is_capturing
-        self.following_move = following_move
-        self.id = self._generate_id()
+        self.following_moves = following_moves
 
     def get_len(self):
         n = 1
@@ -150,90 +140,143 @@ class Move:
     def clone(self):
         return Move(self.piece, self.dest, self.is_capturing)
 
-    @classmethod
-    def _generate_id(cls):
-        cls.last_id += 1
-        return chr(96 + cls.last_id)
 
-    @classmethod
-    def restart_id_generator(cls):
-        cls.last_id = 0
-
-
-class PossibleMoves:
-    """list of tuples, where (piece, piece.addr, piece.id, destination.addr, destination.id)"""
+class MovesGenerator:
     def __init__(self, player, board):
         self.player = player
         self.board = board
-        self.possible_moves = []
+        self.max_length = 0
 
-    def __call__(self):
-        return self.possible_moves
+    def generate(self):
+        moves = OrderedDict()
 
-    def get_movable_pieces(self):
-        pieces = {}
+        for piece in self._get_pieces():
+            moves[piece] = self._get_possible_moves_per_piece(piece)
+
+        longest_moves = self._filter_longest_moves(moves)
+        return longest_moves
+
+    def _get_pieces(self):
+        pieces = []
         for row in self.board:
             for item in row:
-                if not isinstance(item, Piece) or not item.player == self.player: continue
-                possible_moves = self.get_possible_moves(item)
-                if possible_moves:
-                    pieces[item] = possible_moves
-
-        if not pieces: pass # todo: endgame
+                if isinstance(item, Piece) and item.player == self.player:
+                    pieces.append(item)
         return pieces
 
-    def get_reachable_fields(self, piece):
-        pass
+    def _get_possible_moves_per_piece(self, piece) -> list:
+        # todo: add recurrent function to calculate next moves... include board copy as argument
+        captures = self._get_captures(piece)
 
-    def piece_id_to_addr(self, id):
-        pass
+        if captures:
+            return captures
+        else:
+            moves = self._get_moves(piece)
+            return moves
 
-    def dest_id_to_addr(self, id):
-        pass
-
-    def _id_generator(self):
-        pass
-
-    def get_possible_moves(self, piece) -> list:
-        """
-        :return:
-        """
-        moves = []
+    def _get_captures(self, piece):
         captures = []
-        direction = piece.player.value
+        addrs = piece.get_my_diagonal_neighbours(max_dist=piece.max_distance+1, min_dist=2, direction='nwse')
 
-        # check captures
-        addresses = piece.get_my_diagonal_fields(max_dist=1, direction=direction)
-        for addr in addresses:
+        for addr in addrs:
             if self._is_capture_allowed(piece, addr):
-                captures.append(addr)
-                # todo: allow back piece capture
-            elif self._is_move_allowed(piece, addr):
-                moves.append(addr)
+                capture = Move(piece, addr, is_capturing=True)
+                captures.append(capture)
 
-        # todo: create capturing paths and select the longest
+        if captures:
+            return captures
 
-        # example moves from (3,6): [(4,5), (4,7)]
-        # example captures from (3,6): [[(5,4)], [(5,8), (6,7)]] so returns only [(5,8), (6,7)]
-        return moves if not captures else captures
+    def _get_moves(self, piece):
+        moves = []
+        dir_to_move = piece.player.value
+        addrs = piece.get_my_diagonal_neighbours(max_dist=piece.max_distance, direction=dir_to_move)
 
-    def get_all_possible_moves(self, player):
-        pieces = {}
+        for addr in addrs:
+            if self._is_move_allowed(piece, addr):
+                move = Move(piece, addr, is_capturing=False)
+                moves.append(move)
 
-    def _is_move_allowed(self, piece, addr):
-        return isinstance(self.board[addr], EmptyField)
+        return moves
 
-    def _is_capture_allowed(self, piece, addr):
-        dir = _vector_sum(addr, piece.addr, reverse_addrs=True)
+    def _is_move_allowed(self, piece, destination):
+        addrs_between = self._get_fields_between(piece.addr, destination)
 
-        field_behind = _vector_sum(piece.addr, dir, dir)
-        if not _is_on_board(*field_behind):
-            return False
+        for addr in addrs_between:
+            field = self.board[addr]
+            is_occupied = isinstance(field, Piece) or isinstance(field, King)
+            if is_occupied:
+                return False
 
-        av = (isinstance(addr, Piece) and
-             addr.player != piece.player and
-             isinstance(self.board[field_behind], EmptyField))
-        return av
+        return True
+
+    def _is_capture_allowed(self, piece, destination):
+        other_player_pieces = 0
+        addrs_between = self._get_fields_between(piece.addr, destination)
+        for addr in addrs_between:
+            field = self.board[addr]
+
+            is_occupied = isinstance(field, Piece) or isinstance(field, King)
+            is_occupied_by_other_player = hasattr(field, "player") and field.player != piece.player
+
+            if is_occupied and not is_occupied_by_other_player:
+                return False
+            elif is_occupied and is_occupied_by_other_player:
+                other_player_pieces += 1
+
+        is_destination_empty = isinstance(self.board[destination], EmptyField)
+        return other_player_pieces == 1 and is_destination_empty
+
+    def _get_fields_between(self, addr1, addr2):
+        fields = []
+        r1, c1 = addr1
+        r2, c2 = addr2
+
+        assert abs(r2-r1) == abs(c2-c1)
+
+        length = abs(r2-r1)
+        direction = (int((r2-r1)/length), int((c2-c1)/length))
+
+        for i in range(1, length):
+            field = _vector_sum(addr1, *(direction, )*i)
+            fields.append(field)
+        return fields
+
+    def _filter_longest_moves(self, moves):
+        return moves
+
+
+class Game:
+    def __init__(self):
+        self.board = Board()
+        self.current_player = Player.white
+        self.next_move = None
+        # todo: endgame observer?
+
+    def get_possible_moves(self, player=None):
+        if self.next_move:
+            return self.next_move
+
+        gen = MovesGenerator(self.current_player, self.board)
+        moves = gen.generate()
+        if not moves:
+            self._change_player()
+            self._end_game()
+
+        return moves
+
+    def move(self, move: Move):
+        self.board.move(move.piece, move.dest)
+
+        if self.next_move:
+            self.next_move = move.following_moves
+        else:
+            self._change_player()
+
+    def _change_player(self):
+        self.current_player = Player.white if self.current_player == Player.red else Player.red
+
+    def _end_game(self):
+        print(f"Game ends. {self.current_player} player wins.")
 
 
 def _vector_sum(basic_addr, *addrs, reverse_addrs=False):
