@@ -8,7 +8,7 @@ class Player(Enum):
     white = 'n'  # and goes south
     red = 's'  # and goes north
 
-
+# region Pieces
 class BoardMember:
     def __init__(self, row: int, col: int, available: bool):
         self.row = row
@@ -23,7 +23,7 @@ class BoardMember:
     def addr(self, new_addr):
         self.row, self.col = new_addr
 
-    def get_diagonal_fields(self, max_dist=7, min_dist=1, direction='nwse'):
+    def get_my_diagonal_fields(self, max_dist=7, min_dist=1, direction='nwse'):
         """
         example: get all +'s for field 'adr'
 
@@ -72,22 +72,36 @@ class Piece(BoardMember):
 class King(BoardMember):
     # todo: class and its moves to be implemented...
     pass
+# endregion Pieces
 
 
 class Game:
-    # region def.__init__()
     def __init__(self):
-        self._init_board()
-        for p in Player:
-            self._init_pieces(p)
+        self.board = Board()
+        self.current_player = Player.white
+        # todo: endgame observer?
 
-    # todo: endgame observer?
+    def get_possible_moves(self, player=None):
+        pass
 
-    def _init_board(self):
+    def move(self, possible_move):
+        pass
+
+    def _delete_pieces_between(self, move):
+        pass
+
+
+class Board:
+    def __init__(self):
         self.board = np.empty((8, 8), dtype=BoardMember)
-        for r, c in it.product(range(8), range(8)):
-            av = not (r + c + 1) % 2
-            self.board[r, c] = EmptyField(r, c, av)
+        self._init_fields()
+        for player in Player:
+            self._init_pieces(player)
+
+    def _init_fields(self):
+        for row, col in it.product(range(8), range(8)):
+            available = not (row + col + 1) % 2
+            self.board[row, col] = EmptyField(row, col, available)
 
     def _init_pieces(self, player):
         starting_rows = self.board[:3] if player == Player.white else self.board[-3:]
@@ -95,39 +109,107 @@ class Game:
             if field.available:
                 starting_rows[addr] = Piece(field.row, field.col, player)
 
-    # endregion def.__init__()
-
-    def get_board(self):
+    def __call__(self):
         return self.board
 
-    def move(self, piece_addr, dest):
-        # move obj
-        self.board[piece_addr], self.board[dest] = self.board[dest], self.board[piece_addr]
+    def pick_up(self, item: BoardMember):
+        self.board[item.addr] = EmptyField(*item.addr, available=True)
+        return item
 
-        # update addr
-        self.board[piece_addr].addr = piece_addr
-        self.board[dest].addr = dest
+    def move(self, item: BoardMember, dest: BoardMember):
+        assert dest.available == True
+        item = self.pick_up(item)
+        self.put(item, dest)
 
-        self._delete_pieces_between(dest, piece_addr)
+    def put(self, item: BoardMember, addr: BoardMember):
+        self.board[addr] = item
+        item.addr = addr
 
-    def get_possible_moves(self, piece) -> dict:
+
+class Move:
+    last_id = 0
+
+    def __init__(self, piece: BoardMember, dest: BoardMember, is_capturing: bool, following_move=None):
+        self.piece = piece
+        self.dest = dest
+        self.is_capturing = is_capturing
+        self.following_move = following_move
+        self.id = self._generate_id()
+
+    def get_len(self):
+        n = 1
+        move = self
+        while move.following_move is not None:
+            move = self.following_move
+            n += 1
+        return n
+
+    def set_following_move(self, following_move):
+        self.following_move = following_move
+
+    def clone(self):
+        return Move(self.piece, self.dest, self.is_capturing)
+
+    @classmethod
+    def _generate_id(cls):
+        cls.last_id += 1
+        return chr(96 + cls.last_id)
+
+    @classmethod
+    def restart_id_generator(cls):
+        cls.last_id = 0
+
+
+class PossibleMoves:
+    """list of tuples, where (piece, piece.addr, piece.id, destination.addr, destination.id)"""
+    def __init__(self, player, board):
+        self.player = player
+        self.board = board
+        self.possible_moves = []
+
+    def __call__(self):
+        return self.possible_moves
+
+    def get_movable_pieces(self):
+        pieces = {}
+        for row in self.board:
+            for item in row:
+                if not isinstance(item, Piece) or not item.player == self.player: continue
+                possible_moves = self.get_possible_moves(item)
+                if possible_moves:
+                    pieces[item] = possible_moves
+
+        if not pieces: pass # todo: endgame
+        return pieces
+
+    def get_reachable_fields(self, piece):
+        pass
+
+    def piece_id_to_addr(self, id):
+        pass
+
+    def dest_id_to_addr(self, id):
+        pass
+
+    def _id_generator(self):
+        pass
+
+    def get_possible_moves(self, piece) -> list:
         """
-        :return: {id: address}
+        :return:
         """
-        moves = {}
-        captures = {}
+        moves = []
+        captures = []
         direction = piece.player.value
 
         # check captures
-        addresses = piece.get_diagonal_fields(max_dist=1, direction=direction)
+        addresses = piece.get_my_diagonal_fields(max_dist=1, direction=direction)
         for addr in addresses:
             if self._is_capture_allowed(piece, addr):
-                capture_id = len(captures) + 1
-                captures[capture_id] = addr
+                captures.append(addr)
                 # todo: allow back piece capture
             elif self._is_move_allowed(piece, addr):
-                move_id = len(moves) + 1
-                moves[move_id] = addr
+                moves.append(addr)
 
         # todo: create capturing paths and select the longest
 
@@ -135,17 +217,8 @@ class Game:
         # example captures from (3,6): [[(5,4)], [(5,8), (6,7)]] so returns only [(5,8), (6,7)]
         return moves if not captures else captures
 
-    def get_movable_pieces(self, player):
+    def get_all_possible_moves(self, player):
         pieces = {}
-        for row in self.board:
-            for item in row:
-                if not isinstance(item, Piece) or not item.player == player: continue
-                possible_moves = self.get_possible_moves(item)
-                if possible_moves:
-                    pieces[item.addr] = possible_moves
-
-        if not pieces: pass # todo: endgame
-        return pieces
 
     def _is_move_allowed(self, piece, addr):
         return isinstance(self.board[addr], EmptyField)
@@ -157,32 +230,10 @@ class Game:
         if not _is_on_board(*field_behind):
             return False
 
-        av = isinstance(addr, Piece) and \
-             addr.player != piece.player and \
-             isinstance(self.board[field_behind], EmptyField)
+        av = (isinstance(addr, Piece) and
+             addr.player != piece.player and
+             isinstance(self.board[field_behind], EmptyField))
         return av
-
-    def _delete_pieces_between(self, addr1, addr2):
-        diff = _vector_sum(addr1, addr2, reverse_addrs=True)
-        dist = abs(diff[0])
-        dir = diff[0]/dist, diff[1]/dist
-
-        for i in range(1, dist):
-            addr_between = _vector_sum(addr1, dir)
-            field_between = self.board[addr_between]
-
-            if isinstance(field_between, Piece):
-                self.board[addr_between] = EmptyField(*addr_between, available=True)
-                field_between.decr_items_counter()
-                break
-
-    def _addr_to_id(self, addrs):
-        res = {}
-
-        for addr in list(addrs):
-            res[self.board[addr].id] = addr
-
-        return res
 
 
 def _vector_sum(basic_addr, *addrs, reverse_addrs=False):
@@ -202,5 +253,4 @@ def _is_on_board(r, c):
 
 if __name__ == '__main__':
     b = Game()
-    print(b.get_board())
     p = Piece
