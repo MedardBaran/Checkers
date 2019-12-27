@@ -1,61 +1,59 @@
 from colorama import Fore, Back, Style
-from model import EmptyField, Piece, King, Player
-
-# todo: show id's only for next turn player. opponent should have 0's and [0]'s
+from model import EmptyField, Piece, King, Player, BoardMember
 
 
-def _empty_field_to_str(self):
-    r = "   "
+def _get_id(self, fields_with_id, standard_char):
+    is_highlighted = self.addr in list(fields_with_id.keys())
+    id = fields_with_id[self.addr] if is_highlighted else standard_char
+    return id
 
-    if self.available:
+
+def _empty_field_to_str(self, fields_with_id):
+    r = " " + self._get_id(fields_with_id, standard_char=" ") + " "
+
+    if self.addr in list(fields_with_id.keys()):
+        r = " " + fields_with_id[self.addr] + " "
+        return Back.LIGHTGREEN_EX + Fore.BLACK + r
+    elif self.available:
         return Back.BLACK + r
     else:
         return Back.LIGHTWHITE_EX + r
 
 
-def _piece_to_str(self):
-    with_id = True
-    id = self.id if with_id else "O"
-    r = " " + id + " "
+def _piece_to_str(self, fields_with_id):
+    r = " " + self._get_id(fields_with_id, standard_char="O") + " "
 
     if self.player == Player.red:
         return Back.BLACK + Fore.RED + r
-    else:
+    elif self.player == Player.white:
         return Back.BLACK + Fore.WHITE + r
 
 
-def _king_to_str(self):
-    with_id = True
-    id = self.id if with_id else "O"
-    r = "[" + self.id + "]"
+def _king_to_str(self, fields_with_id):
+    r = "{" + self._get_id(fields_with_id, standard_char="O") + "}"
 
     if self.player == Player.red:
         return Back.BLACK + Fore.RED + r
-    else:
+    elif self.player == Player.white:
         return Back.BLACK + Fore.WHITE + r
 
 
-EmptyField.__str__ = _empty_field_to_str
-Piece.__str__ = _piece_to_str
-King.__str__ = _king_to_str
+BoardMember._get_id = _get_id
+EmptyField.to_str = _empty_field_to_str
+Piece.to_str = _piece_to_str
+King.to_str = _king_to_str
 
 
-def print_board(board, selected=None, moves=None):
+def print_board(board, fields_with_id):
     """
-    Print board. Show available moves if piece is selected.
+    Print board. Showing available choices.
     :param board: numpy board, 8 x 8
-    :param selected: optional, tuple with item coordinates: (row, col)
-    :param moves: optional, list of tuples with reachable fields: (row, col, name)
+    :param fields_with_id: dictionary, key: addr, value: id.
+                           Can be either EmptyField or Piece/King
     :return: None.
     """
-
     for row in board:
-        view = ""
         for field in row:
-            print(field, end="")
-        print(view + Style.RESET_ALL)
-
-
-if __name__ == '__main__':
-    a = Back.LIGHTWHITE_EX + Fore.RED + "back lightwhite fore red" + Style.RESET_ALL
-    print(a)
+            s = field.to_str(fields_with_id)
+            print(s, end="")
+        print("" + Style.RESET_ALL)

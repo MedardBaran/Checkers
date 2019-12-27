@@ -8,8 +8,8 @@ import numpy as np
 
 
 class Player(Enum):
-    white = 'n'  # and goes south
-    red = 's'  # and goes north
+    white = 'n'  # and move south
+    red = 's'  # and move north
 
 
 class BoardMember:
@@ -68,9 +68,8 @@ class Piece(BoardMember):
         self.id = st.ascii_lowercase[Piece.items_created[player]]
         Piece.items_created[player] += 1
 
-    def decr_items_counter(self):
+    def __del__(self):
         Piece.items_created[self.player] -= 1
-        # todo: notify endgame observer.
 
 
 class King(BoardMember):
@@ -106,12 +105,12 @@ class Board:
         self.board[item.addr] = EmptyField(*item.addr, available=True)
         return item
 
-    def move(self, item: BoardMember, dest: BoardMember):
-        assert dest.available == True
+    def move(self, item: BoardMember, dest):
+        assert self.board[dest].available
         item = self.pick_up(item)
         self.put(item, dest)
 
-    def put(self, item: BoardMember, addr: BoardMember):
+    def put(self, item: BoardMember, addr):
         self.board[addr] = item
         item.addr = addr
 
@@ -120,11 +119,11 @@ class Board:
 
 
 class Move:
-    def __init__(self, piece: BoardMember, dest: BoardMember, is_capturing: bool, following_moves=None):
+    def __init__(self, piece: BoardMember, dest: BoardMember, is_capturing: bool, following_move=None):
         self.piece = piece
         self.dest = dest
         self.is_capturing = is_capturing
-        self.following_moves = following_moves
+        self.following_move = following_move
 
     def get_len(self):
         n = 1
@@ -144,14 +143,16 @@ class Move:
 class MovesGenerator:
     def __init__(self, player, board):
         self.player = player
-        self.board = board
+        self.board = board.board
         self.max_length = 0
 
     def generate(self):
         moves = OrderedDict()
 
         for piece in self._get_pieces():
-            moves[piece] = self._get_possible_moves_per_piece(piece)
+            possible_moves = self._get_possible_moves_per_piece(piece)
+            if possible_moves:
+                moves[piece] = possible_moves
 
         longest_moves = self._filter_longest_moves(moves)
         return longest_moves
@@ -187,6 +188,7 @@ class MovesGenerator:
             return captures
 
     def _get_moves(self, piece):
+        # fixme: ta metoda zwraca wiele niemozliwych ruchow...
         moves = []
         dir_to_move = piece.player.value
         addrs = piece.get_my_diagonal_neighbours(max_dist=piece.max_distance, direction=dir_to_move)
@@ -201,7 +203,7 @@ class MovesGenerator:
     def _is_move_allowed(self, piece, destination):
         addrs_between = self._get_fields_between(piece.addr, destination)
 
-        for addr in addrs_between:
+        for addr in [*addrs_between, destination]:
             field = self.board[addr]
             is_occupied = isinstance(field, Piece) or isinstance(field, King)
             if is_occupied:
@@ -242,6 +244,8 @@ class MovesGenerator:
         return fields
 
     def _filter_longest_moves(self, moves):
+        # todo: if capture available - remove all moves
+        # todo: find longest capture/move and filter ...
         return moves
 
 
@@ -249,10 +253,11 @@ class Game:
     def __init__(self):
         self.board = Board()
         self.current_player = Player.white
+        self.player_iterator = it.cycle([Player.red, Player.white])
         self.next_move = None
         # todo: endgame observer?
 
-    def get_possible_moves(self, player=None):
+    def get_possible_moves(self):
         if self.next_move:
             return self.next_move
 
@@ -260,7 +265,7 @@ class Game:
         moves = gen.generate()
         if not moves:
             self._change_player()
-            self._end_game()
+            self._is_end_game()
 
         return moves
 
@@ -268,14 +273,18 @@ class Game:
         self.board.move(move.piece, move.dest)
 
         if self.next_move:
-            self.next_move = move.following_moves
+            self.next_move = move.following_move
         else:
             self._change_player()
 
-    def _change_player(self):
-        self.current_player = Player.white if self.current_player == Player.red else Player.red
+    def get_board(self):
+        return self.board.board
 
-    def _end_game(self):
+    def _change_player(self):
+        self.current_player = next(self.player_iterator)
+
+    def _is_end_game(self):
+        # todo:
         print(f"Game ends. {self.current_player} player wins.")
 
 
@@ -296,4 +305,4 @@ def _is_on_board(r, c):
 
 if __name__ == '__main__':
     b = Game()
-    p = Piece
+    print('end')
