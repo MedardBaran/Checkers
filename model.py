@@ -9,7 +9,7 @@ import numpy as np
 
 class Player(Enum):
     white = 'n'  # and move south
-    red = 's'  # and move north
+    red = 's'    # and move north
 
 
 class BoardMember:
@@ -55,7 +55,8 @@ class BoardMember:
 
 
 class EmptyField(BoardMember):
-    pass
+    def __repr__(self):
+        return "  "
 
 
 class Piece(BoardMember):
@@ -68,16 +69,22 @@ class Piece(BoardMember):
         self.id = st.ascii_lowercase[Piece.items_created[player]]
         Piece.items_created[player] += 1
 
+    def __repr__(self):
+        return f"{self.player.name[0]}P"
+
     def __del__(self):
         Piece.items_created[self.player] -= 1
 
 
-class King(BoardMember):
+class King(BoardMember):  # todo: inherit from Piece
     def __init__(self, piece: Piece):
         super().__init__(piece.row, piece.col, True)
         self.player = piece.player
         self.max_distance = 7
         self.id = piece.id
+
+    def __repr__(self):
+        return f"{self.player.name[0]}K"
 
 
 class Board:
@@ -86,6 +93,12 @@ class Board:
         self._init_fields()
         for player in Player:
             self._init_pieces(player)
+
+    def __repr__(self):
+        view = ""
+        for row in self.board:
+            view = view + ",".join([item.__repr__() for item in row]) + "\n"
+        return view
 
     def _init_fields(self):
         for row, col in it.product(range(8), range(8)):
@@ -119,11 +132,15 @@ class Board:
 
 
 class Move:
-    def __init__(self, piece: BoardMember, dest: BoardMember, is_capturing: bool, following_move=None):
+    def __init__(self, piece: BoardMember, dest: BoardMember, captured_piece: BoardMember = None, following_move=None):
         self.piece = piece
         self.dest = dest
-        self.is_capturing = is_capturing
+        self.captured_piece = captured_piece
+        self.is_capturing = captured_piece is not None
         self.following_move = following_move
+
+    def __repr__(self):
+        return f"{self.piece}: {self.piece.addr} -> {self.dest}"
 
     def get_len(self):
         n = 1
@@ -133,11 +150,14 @@ class Move:
             n += 1
         return n
 
+    def get_captured_piece(self):
+        return self.captured_piece
+
     def set_following_move(self, following_move):
         self.following_move = following_move
 
     def clone(self):
-        return Move(self.piece, self.dest, self.is_capturing)
+        return Move(self.piece, self.dest, self.captured_piece)
 
 
 class MovesGenerator:
@@ -154,8 +174,9 @@ class MovesGenerator:
             if possible_moves:
                 moves[piece] = possible_moves
 
-        longest_moves = self._filter_longest_moves(moves)
-        return longest_moves
+        moves = self._filter_captures(moves)
+        moves = self._filter_longest_moves(moves)
+        return moves
 
     def _get_pieces(self):
         pieces = []
@@ -180,8 +201,9 @@ class MovesGenerator:
         addrs = piece.get_my_diagonal_neighbours(max_dist=piece.max_distance+1, min_dist=2, direction='nwse')
 
         for addr in addrs:
-            if self._is_capture_allowed(piece, addr):
-                capture = Move(piece, addr, is_capturing=True)
+            target = self._get_piece_to_capture(piece, addr)
+            if target is not None:
+                capture = Move(piece, addr, captured_piece=target)
                 captures.append(capture)
 
         if captures:
@@ -195,7 +217,7 @@ class MovesGenerator:
 
         for addr in addrs:
             if self._is_move_allowed(piece, addr):
-                move = Move(piece, addr, is_capturing=False)
+                move = Move(piece, addr)
                 moves.append(move)
 
         return moves
@@ -208,25 +230,27 @@ class MovesGenerator:
             is_occupied = isinstance(field, Piece) or isinstance(field, King)
             if is_occupied:
                 return False
-
         return True
 
-    def _is_capture_allowed(self, piece, destination):
-        other_player_pieces = 0
-        addrs_between = self._get_fields_between(piece.addr, destination)
+    def _get_piece_to_capture(self, attacker: Piece, destination: tuple):
+        possible_victims = []
+        addrs_between = self._get_fields_between(attacker.addr, destination)
         for addr in addrs_between:
             field = self.board[addr]
 
             is_occupied = isinstance(field, Piece) or isinstance(field, King)
-            is_occupied_by_other_player = hasattr(field, "player") and field.player != piece.player
+            is_occupied_by_other_player = hasattr(field, "player") and field.player != attacker.player
 
             if is_occupied and not is_occupied_by_other_player:
-                return False
+                return None
             elif is_occupied and is_occupied_by_other_player:
-                other_player_pieces += 1
+                possible_victims.append(field)
 
         is_destination_empty = isinstance(self.board[destination], EmptyField)
-        return other_player_pieces == 1 and is_destination_empty
+        if len(possible_victims) == 1 and is_destination_empty:
+            return possible_victims[0]
+        else:
+            return None
 
     def _get_fields_between(self, addr1, addr2):
         fields = []
@@ -243,8 +267,24 @@ class MovesGenerator:
             fields.append(field)
         return fields
 
+    def _filter_captures(self, moves):
+        for move_list in moves.values():
+            for move in move_list:
+                if move.is_capturing:
+                    moves = self._remove_moves_leave_captures(moves)
+                    break
+        return moves
+
+    def _remove_moves_leave_captures(self, moves):
+        new_moves = OrderedDict()
+        for piece, moves_list in moves.items():
+            captures = [move for move in moves_list if move.is_capturing]
+            if captures:
+                new_moves[piece] = captures
+
+        return new_moves
+
     def _filter_longest_moves(self, moves):
-        # todo: if capture available - remove all moves
         # todo: find longest capture/move and filter ...
         return moves
 
@@ -271,6 +311,8 @@ class Game:
 
     def move(self, move: Move):
         self.board.move(move.piece, move.dest)
+        if move.is_capturing:
+            self.board.pick_up(move.captured_piece)
 
         if self.next_move:
             self.next_move = move.following_move
