@@ -1,8 +1,6 @@
 from model import *
 from terminalView import *
 
-# todo: wybrany warcab powinien byc oznaczony w momencie wyboru pola docelowego
-
 
 class Controller:
     def __init__(self):
@@ -16,35 +14,31 @@ class Controller:
     def _play(self):
         while True:
             possible_moves = self.game.get_possible_moves()
-            selected_move = self._ask_about_next_move(possible_moves)
+            selected_move = self._get_next_move(possible_moves)
             self.game.move(selected_move)
             if self._is_end_game():
                 winner = self.game.current_player
                 self.dialog.show_ending(winner)
                 break
 
-    def _ask_about_next_move(self, possible_moves):
-        # todo: refactor!
-
+    def _get_next_move(self, possible_moves):
         id_field_translator = IdFieldTranslator(possible_moves)
+        piece = self._get_next_piece(id_field_translator)
+        move = self._get_destination(piece, id_field_translator)
+        return move
 
-        movable_pieces = id_field_translator.pieces_dict()
+    def _get_next_piece(self, translator):
+        movable_pieces = translator.pieces_dict()
         self._print_board(movable_pieces)
+        piece_id = self.dialog.get_piece(movable_pieces.values())
+        return translator.id_to_piece(piece_id)
 
-        # ask about piece
-        possible_answers = id_field_translator.piece_ids()
-        piece_id = self.dialog.get_piece(possible_answers)
-        selected_piece = id_field_translator.id_to_piece(piece_id)
-
-        # print moves
-        reachable_fields = id_field_translator.moves_dict(piece_id)
+    def _get_destination(self, piece, translator):
+        reachable_fields = translator.moves_dict(piece)
+        # todo: add selected piece to reachable_fields
         self._print_board(reachable_fields)
-
-        # ask about destination
-        possible_answers = id_field_translator.move_ids(selected_piece)
-        move_id = self.dialog.get_dest(possible_answers)
-
-        return id_field_translator.id_to_move(move_id, selected_piece)
+        move_id = self.dialog.get_dest(reachable_fields.values())
+        return translator.id_to_move(move_id, piece)
 
     def _print_board(self, fields_with_id=None):
         if fields_with_id is None:
@@ -78,8 +72,7 @@ class IdFieldTranslator:
     def pieces_dict(self):
         return dict(self._pieces())
 
-    def moves_dict(self, piece_id):
-        piece = self.id_to_piece(piece_id)
+    def moves_dict(self, piece):
         return dict(self._moves(piece))
 
     def piece_ids(self):
