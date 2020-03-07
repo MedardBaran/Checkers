@@ -1,4 +1,4 @@
-from model import *
+from model.game import Game
 from terminalView import *
 
 
@@ -58,7 +58,7 @@ class IdFieldTranslator:
     def _pieces(self):
         pieces = list(self.possible_moves.keys())
         piece_addrs = [piece.addr for piece in pieces]
-        ids = 'abcdefghijkl'
+        ids = 'abcdefghijkl'  # todo: remove those ids and use piece.id
 
         return zip(piece_addrs, ids)
 
@@ -121,6 +121,7 @@ class Dialog:
             dest = str(input()).upper()
             if dest in available:
                 return dest
+            # todo: click 0 to return to select capture not working
 
 
 if __name__ == '__main__':

@@ -1,5 +1,5 @@
 from colorama import Fore, Back, Style
-from model import EmptyField, Piece, King, Player, BoardMember
+from model.items import EmptyField, Piece, King, Player, BoardMember
 
 
 def _get_id(self, fields_with_id, standard_char):
