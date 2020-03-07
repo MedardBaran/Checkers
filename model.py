@@ -75,13 +75,15 @@ class Piece(BoardMember):
     def __del__(self):
         Piece.items_created[self.player] -= 1
 
+    def upgrade(self):
+        return King(self.row, self.col, self.player)
 
-class King(BoardMember):  # todo: inherit from Piece
-    def __init__(self, piece: Piece):
-        super().__init__(piece.row, piece.col, True)
-        self.player = piece.player
+
+class King(Piece):
+    def __init__(self, row, col, player):
+        super().__init__(row, col, player)
         self.max_distance = 7
-        self.id = piece.id
+        Piece.items_created[player] -= 1
 
     def __repr__(self):
         return f"{self.player.name[0]}K"
@@ -157,16 +159,21 @@ class Move:
         self.following_move = following_move
 
     def clone(self):
-        return Move(self.piece, self.dest, self.captured_piece)
+        return Move(self.piece, self.dest, self.captured_piece, self.following_move)
 
 
 class MovesGenerator:
     def __init__(self, player, board):
         self.player = player
-        self.board = board.board
+        self.board = board()
         self.max_length = 0
 
     def generate(self):
+        """
+        Return the list of all possible moves to be done in one turn by single player. Contains the multiple captures
+        to do by single piece in a row.
+        :return: dict, key: Piece, value: [Moves]
+        """
         moves = OrderedDict()
 
         for piece in self._get_pieces():
