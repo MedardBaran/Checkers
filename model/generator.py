@@ -5,7 +5,7 @@ from collections import OrderedDict
 class MovesGenerator:
     def __init__(self, player, board):
         self.player = player
-        self.board = board()
+        self.board = board
         self.max_length = 0
         self.pieces = []
 
@@ -24,19 +24,21 @@ class MovesGenerator:
 
     def _get_pieces(self):
         pieces = []
-        for row in self.board:
+        for row in self.board():
             for item in row:
                 if isinstance(item, Piece) and item.player == self.player:
                     pieces.append(item)
         return pieces
 
-    def _get_captures(self) -> dict:
+    def _get_captures(self):
         all_captures = OrderedDict()
 
         for piece in self.pieces:
             generator = _CapturesFinder(piece, self.board)
             captures = generator.generate()
 
+            if captures:
+                all_captures[piece] = captures
         # todo: find longest!
 
         return all_captures
@@ -47,7 +49,9 @@ class MovesGenerator:
         for piece in self.pieces:
             generator = _MovesFinder(piece, self.board)
             moves = generator.generate()
-            all_moves[piece] = moves
+
+            if moves:
+                all_moves[piece] = moves
 
         return all_moves
 
@@ -72,7 +76,7 @@ class _Finder:
         r1, c1 = addr1
         r2, c2 = addr2
 
-        assert abs(r2-r1) == abs(c2-c1)
+        assert abs(r2-r1) == abs(c2-c1), f"{addr1} -> {addr2}, ruch niemożliwy."
 
         length = abs(r2-r1)
         direction = (int((r2-r1)/length), int((c2-c1)/length))
@@ -110,7 +114,7 @@ class _CapturesFinder(_Finder):
         possible_victims = []
         addrs_between = self._get_fields_between(self.piece.addr, destination)
         for addr in addrs_between:
-            field = self.board[addr]
+            field = self.board()[addr]
 
             is_occupied = isinstance(field, Piece) or isinstance(field, King)
             is_occupied_by_other_player = hasattr(field, "player") and field.player != self.piece.player
@@ -120,15 +124,22 @@ class _CapturesFinder(_Finder):
             elif is_occupied and is_occupied_by_other_player:
                 possible_victims.append(field)
 
-        is_destination_empty = isinstance(self.board[destination], EmptyField)
+        is_destination_empty = isinstance(self.board()[destination], EmptyField)
         if len(possible_victims) == 1 and is_destination_empty:
             return possible_victims[0]
         else:
             return None
 
     def _find_following_captures(self, previous):
-        # todo: zastosowac rekurencję
-        return []
+        board = self.board.clone()
+        board.move(previous.piece.clone(), previous.dest)
+        board.pick_up(previous.captured_piece)
+        piece = board()[previous.dest]
+
+        generator = _CapturesFinder(piece, board)
+        captures = generator.generate()
+
+        return captures
 
 
 class _MovesFinder(_Finder):
@@ -148,7 +159,7 @@ class _MovesFinder(_Finder):
         addrs_between = self._get_fields_between(self.piece.addr, destination)
 
         for addr in [*addrs_between, destination]:
-            field = self.board[addr]
+            field = self.board()[addr]
             is_occupied = isinstance(field, Piece) or isinstance(field, King)
             if is_occupied:
                 return False

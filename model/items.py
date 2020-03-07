@@ -5,6 +5,7 @@ from enum import Enum
 
 import numpy as np
 
+
 class Player(Enum):
     white = 'n'  # and move south
     red = 's'    # and move north
@@ -76,6 +77,9 @@ class Piece(BoardMember):
     def upgrade(self):
         return King(self.row, self.col, self.player)
 
+    def clone(self):
+        return copy.deepcopy(self)
+
 
 class King(Piece):
     def __init__(self, row, col, player):
@@ -95,9 +99,11 @@ class Board:
             self._init_pieces(player)
 
     def __repr__(self):
-        view = ""
+        view = "  0  1  2  3  4  5  6  7\n"
+        i = 0
         for row in self.board:
-            view = view + ",".join([item.__repr__() for item in row]) + "\n"
+            view = view + str(i) + ",".join([item.__repr__() for item in row]) + "\n"
+            i += 1
         return view
 
     def _init_fields(self):
@@ -128,7 +134,7 @@ class Board:
         item.addr = addr
 
     def clone(self):
-        return copy.deepcopy(self.board)
+        return copy.deepcopy(self)
 
 
 class Move:

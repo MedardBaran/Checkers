@@ -9,12 +9,14 @@ class Game:
         self.board = Board()
         self.current_player = Player.white
         self.player_iterator = it.cycle([Player.red, Player.white])
-        self.next_move = None
+        self.following_move = None
         # todo: endgame observer?
 
     def get_possible_moves(self):
-        if self.next_move:
-            return self.next_move
+        if self.following_move:
+            following_move = self.following_move
+            self.following_move = None
+            return following_move
 
         gen = MovesGenerator(self.current_player, self.board)
         moves = gen.generate()
@@ -29,13 +31,14 @@ class Game:
         if move.is_capturing:
             self.board.pick_up(move.captured_piece)
 
-        if self.next_move:
-            self.next_move = move.following_move
+        if move.following_move:
+            self.following_move = {move.piece: [move.following_move]}
         else:
+            self.following_move = None
             self._change_player()
 
     def get_board(self):
-        return self.board.board
+        return self.board()
 
     def _change_player(self):
         self.current_player = next(self.player_iterator)

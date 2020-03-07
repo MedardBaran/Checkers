@@ -1,5 +1,9 @@
+import itertools as it
+
+import numpy as np
+
 from controller import Controller
-from model import *
+from model.items import BoardMember, Player, King, Piece, Board
 
 
 class BoardLayout:
