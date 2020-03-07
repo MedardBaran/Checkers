@@ -148,7 +148,7 @@ class Move:
     def __repr__(self):
         return f"{self.piece}: {self.piece.addr} -> {self.dest}"
 
-    def get_len(self):
+    def __len__(self):
         n = 1
         move = self
         while move.following_move is not None:

@@ -1,16 +1,21 @@
 from model.items import EmptyField, Piece, King, Move
 from collections import OrderedDict
+import itertools as it
 
 
 class MovesGenerator:
-    def __init__(self, player, board):
+    def __init__(self, player, board, piece=None):
         self.player = player
         self.board = board
         self.max_length = 0
         self.pieces = []
+        self.specific_piece = piece
 
     def generate(self):
-        self.pieces = self._get_pieces()
+        if self.specific_piece:
+            self.pieces = [self.specific_piece]
+        else:
+            self.pieces = self._get_pieces()
 
         captures = self._get_captures()
         if self._any_available(captures):
@@ -39,7 +44,8 @@ class MovesGenerator:
 
             if captures:
                 all_captures[piece] = captures
-        # todo: find longest!
+
+        all_captures = self._remove_all_but_longest(all_captures)
 
         return all_captures
 
@@ -60,6 +66,20 @@ class MovesGenerator:
             if moves != []:
                 return True
         return False
+
+    def _remove_all_but_longest(self, captures_dict):
+        if not captures_dict:
+            return captures_dict
+
+        max_len = max([len(i) for i in list(it.chain.from_iterable(captures_dict.values()))])
+
+        longest = {}
+        for piece, captures_list in captures_dict.items():
+            captures = [c for c in captures_list if len(c) == max_len]
+            if captures:
+                longest[piece] = captures
+
+        return longest
 
 
 class _Finder:
