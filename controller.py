@@ -24,7 +24,10 @@ class Controller:
     def _get_next_move(self, possible_moves):
         id_field_translator = IdFieldTranslator(possible_moves)
         piece = self._get_next_piece(id_field_translator)
+        # todo: if its capturing chain, there is no point of selecting piece.
+        # todo: also if there is only one to be selected - do not ask
         move = self._get_destination(piece, id_field_translator)
+        # todo: if only one destination - single enter will work
         return move
 
     def _get_next_piece(self, translator):
@@ -35,7 +38,7 @@ class Controller:
 
     def _get_destination(self, piece, translator):
         reachable_fields = translator.moves_dict(piece)
-        # todo: add selected piece to reachable_fields
+        # todo: add selected piece to reachable_fields to highlight it properly
         self._print_board(reachable_fields)
         move_id = self.dialog.get_dest(reachable_fields.values())
         return translator.id_to_move(move_id, piece)
@@ -63,6 +66,8 @@ class IdFieldTranslator:
         return zip(piece_addrs, ids)
 
     def _moves(self, piece):
+        # todo: strange numbers location (1 far from 2, 1 next to 3)
+        # todo: when capture chain and first move is mandatory, its id is not always == 1
         moves = self.possible_moves[piece]
         reachable_destinations = [move.dest for move in moves]
         ids = '123456789ABCDEFG'
@@ -95,7 +100,7 @@ class IdFieldTranslator:
 class Dialog:
     def __init__(self):
         self.intro_msg = "Hello. That's intro with tutorial."  # todo: intro
-        self.whose_turn_msg = ""
+        self.whose_turn_msg = ""  # todo:
         self.select_piece_msg = "Please enter piece id you would like to move..."
         self.select_destination_msg = "Now please enter number with destination field or 0 to select different piece..."
         self.exit_confirmation_msg = "Are you sure you want to exit?"
