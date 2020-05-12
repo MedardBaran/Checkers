@@ -1,4 +1,4 @@
-from model.items import EmptyField, Piece, King, Move
+from model.items import EmptyField, Piece, King, Move, EndGameEvent
 from collections import OrderedDict
 import itertools as it
 
@@ -25,7 +25,7 @@ class MovesGenerator:
         if self._any_available(moves):
             return moves
 
-        return None
+        raise EndGameEvent(self.player.opponent)
 
     def _get_pieces(self):
         pieces = []
@@ -96,7 +96,7 @@ class _Finder:
         r1, c1 = addr1
         r2, c2 = addr2
 
-        assert abs(r2-r1) == abs(c2-c1), f"{addr1} -> {addr2}, ruch niemożliwy."
+        assert abs(r2-r1) == abs(c2-c1), f"{addr1} -> {addr2}, impossible move."
 
         length = abs(r2-r1)
         direction = (int((r2-r1)/length), int((c2-c1)/length))
@@ -165,7 +165,8 @@ class _CapturesFinder(_Finder):
 class _MovesFinder(_Finder):
     def generate(self):
         moves = []
-        dir_to_move = self.piece.player.value
+        dir_to_move = 'nwse' if isinstance(self.piece, King) else self.piece.player.value
+
         addrs = self.piece.get_my_diagonal_neighbours(max_dist=self.piece.max_distance, direction=dir_to_move)
 
         for addr in addrs:

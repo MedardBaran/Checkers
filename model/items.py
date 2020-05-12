@@ -10,6 +10,13 @@ class Player(Enum):
     white = 'n'  # and move south
     red = 's'    # and move north
 
+    @property
+    def opponent(self):
+        if self.name == Player.white:
+            return Player.red
+        else:
+            return Player.white
+
 
 class BoardMember:
     def __init__(self, row: int, col: int, available: bool):
@@ -61,11 +68,11 @@ class EmptyField(BoardMember):
 class Piece(BoardMember):
     items_created = dict([(i, 0) for i in Player])
 
-    def __init__(self, row, col, player):
+    def __init__(self, row, col, player, id=None):
         super().__init__(row, col, True)
         self.player = player
         self.max_distance = 1
-        self.id = st.ascii_lowercase[Piece.items_created[player]]
+        self.id = id if id else st.ascii_lowercase[Piece.items_created[player]]
         Piece.items_created[player] += 1
 
     def __repr__(self):
@@ -75,15 +82,15 @@ class Piece(BoardMember):
         Piece.items_created[self.player] -= 1
 
     def upgrade(self):
-        return King(self.row, self.col, self.player)
+        return King(self.row, self.col, self.player, id=self.id)
 
     def clone(self):
         return copy.deepcopy(self)
 
 
 class King(Piece):
-    def __init__(self, row, col, player):
-        super().__init__(row, col, player)
+    def __init__(self, row, col, player, id=None):
+        super().__init__(row, col, player, id)
         self.max_distance = 7
         Piece.items_created[player] -= 1
 
@@ -129,8 +136,12 @@ class Board:
         item = self.pick_up(item)
         self.put(item, dest)
 
-    def put(self, item: BoardMember, addr):
+    def put(self, item: BoardMember, addr=None):
+        if not addr:
+            addr = item.addr
+
         self.board[addr] = item
+
         item.addr = addr
 
     def clone(self):
@@ -165,6 +176,10 @@ class Move:
 
     def clone(self):
         return Move(self.piece, self.dest, self.captured_piece, self.following_move)
+
+
+class EndGameEvent(Exception):
+    pass
 
 
 def _is_on_board(r, c):

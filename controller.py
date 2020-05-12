@@ -12,14 +12,13 @@ class Controller:
         self._play()
 
     def _play(self):
-        while True:
-            possible_moves = self.game.get_possible_moves()
-            selected_move = self._get_next_move(possible_moves)
-            self.game.move(selected_move)
-            if self._is_end_game():
-                winner = self.game.current_player
-                self.dialog.show_ending(winner)
-                break
+        with self.game:
+            while self.game.continues():
+                possible_moves = self.game.get_possible_moves()
+                selected_move = self._get_next_move(possible_moves)
+                self.game.move(selected_move)
+
+        self.dialog.show_ending(self.game.winner)
 
     def _get_next_move(self, possible_moves):
         id_field_translator = IdFieldTranslator(possible_moves)
@@ -49,21 +48,13 @@ class Controller:
 
         print_board(self.game.get_board(), fields_with_id)
 
-    def _is_end_game(self):
-        # todo: calculate endgame
-        return False
-
 
 class IdFieldTranslator:
     def __init__(self, possible_moves):
         self.possible_moves = possible_moves
 
     def _pieces(self):
-        pieces = list(self.possible_moves.keys())
-        piece_addrs = [piece.addr for piece in pieces]
-        ids = 'abcdefghijkl'  # todo: remove those ids and use piece.id
-
-        return zip(piece_addrs, ids)
+        return [(piece.addr, piece.id) for piece in list(self.possible_moves.keys())]
 
     def _moves(self, piece):
         # todo: strange numbers location (1 far from 2, 1 next to 3)
@@ -104,14 +95,13 @@ class Dialog:
         self.select_piece_msg = "Please enter piece id you would like to move..."
         self.select_destination_msg = "Now please enter number with destination field or 0 to select different piece..."
         self.exit_confirmation_msg = "Are you sure you want to exit?"
-        self.end_msg = "And the winner is... "
+        self.end_suffix = " player is the winner! Congratulations!!"
 
     def show_intro(self):
         print(self.intro_msg)
 
     def show_ending(self, player):
-        color = str(player).split(".")[-1].capitalize()
-        print(self.end_msg)
+        print(player.name.capitalize(), self.end_suffix)
 
     def get_piece(self, available):
         while True:
