@@ -25,6 +25,10 @@ def end_game():
     return BoardLayout(f23='wP', f34='rP')
 
 
+def sort_moves():
+    return BoardLayout(f34='wK', f76='rP')
+
+
 if __name__ == '__main__':
-    layout = end_game()
+    layout = multimoves_calculation()
     start_test_scenario(layout)

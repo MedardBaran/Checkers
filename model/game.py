@@ -11,9 +11,8 @@ class Game:
         self.player_iterator = it.cycle([Player.red, Player.white])
         self.piece_to_continue = None
 
-        self.winner = None
-
     def __enter__(self):
+        self.winner = None
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):

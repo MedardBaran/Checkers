@@ -7,8 +7,8 @@ import numpy as np
 
 
 class Player(Enum):
-    white = 'n'  # and move south
-    red = 's'    # and move north
+    white = 's'
+    red = 'n'
 
     @property
     def opponent(self):
@@ -45,14 +45,16 @@ class BoardMember:
         -  -  +  -  -  -  -  -
         -  +  -  -  -  -  -  -
         """
-        ne, nw, se, sw = [(1, 1)], [(1, -1)], [(-1, 1)], [(-1, -1)]
-        n, s = ne + nw, se + sw
-        nwse = n + s
+
+        # order here matters
+        nw, ne, se, sw = [(-1, -1)], [(-1, 1)], [(1, 1)], [(1, -1)]
+        n, s = nw + ne, sw + se
+        nwse = nw + ne + se + sw
         dirs = dict(zip(['nwse', 'n', 's', 'nw', 'ne', 'sw', 'se'],
-                        [nwse, n, s, nw, ne, sw, se]))
+                        [nwse, n, s, nw, ne, se, sw]))
 
         result = []
-        for dist, dr in it.product(range(min_dist, max_dist + 1), dirs[direction]):
+        for dr, dist in it.product(dirs[direction], range(min_dist, max_dist + 1)):
             r = self.row + dr[0] * dist
             c = self.col + dr[1] * dist
             if _is_on_board(r, c):
